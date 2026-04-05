@@ -1,0 +1,89 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: proposals_db
+      POSTGRES_USER: armando
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-localdev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U armando -d proposals_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://armando:${DB_PASSWORD:-localdev}@postgres:5432/proposals_db
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      REDIS_URL: redis://redis:6379/10
+      KROKI_URL: http://kroki:8000
+      CORS_ORIGINS: '["http://localhost:3120"]'
+    ports:
+      - "8120:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - backend_exports:/app/exports
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8120
+    ports:
+      - "3120:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    restart: unless-stopped
+
+  kroki:
+    image: yuzutech/kroki:0.26.0
+    environment:
+      - KROKI_MERMAID_HOST=mermaid
+    ports:
+      - "8125:8000"
+    depends_on:
+      - mermaid
+    restart: unless-stopped
+
+  mermaid:
+    image: yuzutech/kroki-mermaid:0.26.0
+    expose:
+      - "8002"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_exports:
+
+networks:
+  default:
+    name: proposal-network

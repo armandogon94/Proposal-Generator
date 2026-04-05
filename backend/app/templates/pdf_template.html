@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        @page {
+            size: letter;
+            margin: 0.75in;
+            @top-right {
+                content: "{{ branding.company_name }}";
+                font-size: 8pt;
+                color: {{ branding.secondary_color }};
+            }
+            @bottom-center {
+                content: "{{ branding.company_url }} — Page " counter(page) " of " counter(pages);
+                font-size: 8pt;
+                color: #6B7280;
+            }
+        }
+        @page :first {
+            @top-right { content: none; }
+            @bottom-center { content: none; }
+        }
+
+        body {
+            font-family: {{ branding.font_family }};
+            color: {{ branding.text_color }};
+            line-height: 1.6;
+            font-size: 11pt;
+        }
+
+        /* Cover page */
+        .cover-page {
+            page-break-after: always;
+            text-align: center;
+            padding-top: 3in;
+        }
+        .cover-logo {
+            max-width: 200px;
+            margin-bottom: 2em;
+        }
+        .cover-title {
+            font-size: 28pt;
+            color: {{ branding.primary_color }};
+            margin-bottom: 0.3em;
+            font-weight: 700;
+        }
+        .cover-subtitle {
+            font-size: 14pt;
+            color: {{ branding.secondary_color }};
+            margin-bottom: 2em;
+        }
+        .cover-client {
+            font-size: 16pt;
+            color: {{ branding.text_color }};
+            margin-top: 1em;
+        }
+        .cover-date {
+            font-size: 11pt;
+            color: #6B7280;
+            margin-top: 2em;
+        }
+
+        /* Content */
+        h1 {
+            color: {{ branding.primary_color }};
+            font-size: 20pt;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            border-bottom: 2px solid {{ branding.primary_color }};
+            padding-bottom: 0.3em;
+            bookmark-level: 1;
+        }
+        h2 {
+            color: {{ branding.secondary_color }};
+            font-size: 14pt;
+            margin-top: 1.2em;
+            bookmark-level: 2;
+        }
+        h3 {
+            color: {{ branding.text_color }};
+            font-size: 12pt;
+            margin-top: 1em;
+            bookmark-level: 3;
+        }
+
+        p { margin: 0.5em 0; }
+
+        ul, ol {
+            margin: 0.5em 0;
+            padding-left: 1.5em;
+        }
+        li { margin: 0.3em 0; }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1em 0;
+        }
+        th {
+            background-color: {{ branding.primary_color }};
+            color: white;
+            padding: 0.6em 0.75em;
+            text-align: left;
+            font-size: 10pt;
+        }
+        td {
+            padding: 0.5em 0.75em;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 10pt;
+        }
+        tr:nth-child(even) td {
+            background-color: {{ branding.light_bg }};
+        }
+        .total-row td {
+            font-weight: bold;
+            background-color: {{ branding.light_bg }};
+            border-top: 2px solid {{ branding.primary_color }};
+        }
+
+        /* Diagrams */
+        .diagram-container {
+            margin: 1.5em 0;
+            text-align: center;
+            page-break-inside: avoid;
+        }
+        .diagram-container svg {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Signature */
+        .signature-block {
+            margin-top: 3em;
+            page-break-inside: avoid;
+        }
+        .signature-line {
+            border-top: 1px solid {{ branding.text_color }};
+            width: 250px;
+            margin-top: 3em;
+        }
+
+        /* Keep headings with content */
+        h1, h2, h3 { page-break-after: avoid; }
+        table { page-break-inside: avoid; }
+    </style>
+</head>
+<body>
+    <!-- Cover Page -->
+    <div class="cover-page">
+        <div class="cover-title">Project Proposal</div>
+        <div class="cover-subtitle">{{ proposal.proposal_number }}</div>
+        <div class="cover-title" style="font-size: 18pt; border: none;">{{ proposal.title }}</div>
+        {% if proposal.client %}
+        <div class="cover-client">Prepared for: {{ proposal.client.name }}</div>
+        {% if proposal.client.company %}
+        <div class="cover-client" style="font-size: 14pt; color: #6B7280;">{{ proposal.client.company }}</div>
+        {% endif %}
+        {% endif %}
+        <div class="cover-date">{{ proposal.created_at.strftime('%B %d, %Y') }}</div>
+        <div class="cover-date" style="margin-top: 3em;">
+            {{ branding.company_name }} &mdash; {{ branding.company_url }}<br>
+            {{ branding.company_email }}
+        </div>
+    </div>
+
+    <!-- Content Sections -->
+    {% for section in proposal.sections | sort(attribute='order_index') %}
+    <h1>{{ section.title }}</h1>
+    <div>{{ section.content | replace('\n\n', '</p><p>') | replace('\n- ', '</p><ul><li>') | safe }}</div>
+    {% endfor %}
+
+    <!-- Diagrams -->
+    {% for diagram in proposal.diagrams %}
+    <div class="diagram-container">
+        <h2>{{ diagram.title or 'Diagram' }}</h2>
+        {% if diagram.svg_output %}
+        {{ diagram.svg_output | safe }}
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <!-- Pricing Table -->
+    {% if proposal.pricing_items %}
+    <h1>Pricing</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in proposal.pricing_items if item.is_selected or not item.is_optional %}
+            <tr{% if item.item_type == 'discount' %} style="color: #059669;"{% endif %}>
+                <td>
+                    {{ item.name }}
+                    {% if item.description %}<br><small style="color: #6B7280;">{{ item.description }}</small>{% endif %}
+                    {% if item.is_optional %}<br><small style="color: {{ branding.accent_color }};">(Optional)</small>{% endif %}
+                </td>
+                <td>{{ item.quantity }}</td>
+                <td>${{ "{:,.2f}".format(item.unit_price) }}</td>
+                <td>${{ "{:,.2f}".format(item.total_price) }}</td>
+            </tr>
+            {% endfor %}
+            {% if discount_total > 0 %}
+            <tr>
+                <td colspan="3" style="text-align: right;">Subtotal</td>
+                <td>${{ "{:,.2f}".format(subtotal) }}</td>
+            </tr>
+            {% endif %}
+            <tr class="total-row">
+                <td colspan="3" style="text-align: right;">Total</td>
+                <td>${{ "{:,.2f}".format(proposal.final_amount) }}</td>
+            </tr>
+        </tbody>
+    </table>
+    <p><strong>Payment Terms:</strong> {{ proposal.payment_terms or 'Net 30' }}</p>
+    <p><strong>Valid Until:</strong> {{ proposal.valid_until.strftime('%B %d, %Y') if proposal.valid_until else 'N/A' }}</p>
+    {% endif %}
+
+    <!-- Signature Block -->
+    <div class="signature-block">
+        <p><strong>Acceptance</strong></p>
+        <p>By signing below, you agree to the terms and pricing outlined in this proposal.</p>
+        <div class="signature-line"></div>
+        <p>Signature &amp; Date</p>
+        <div class="signature-line" style="margin-top: 2em;"></div>
+        <p>{{ branding.company_name }} — Authorized Representative</p>
+    </div>
+</body>
+</html>
