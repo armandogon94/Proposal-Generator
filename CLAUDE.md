@@ -1,5 +1,7 @@
 # CLAUDE.md — Project 12: Client Proposal Generator
 
+> **Port allocation:** See [PORTS.md](PORTS.md) before changing any docker-compose ports. All ports outside the assigned ranges are taken by other projects.
+
 ## Quick Reference
 
 - **Project:** AI-Powered Client Proposal Generator for 305-ai.com
